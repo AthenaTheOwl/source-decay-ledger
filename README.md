@@ -35,9 +35,78 @@ Bucket: daily. Cadence: weekly. Brand prefix: `SDL`.
 
 ## Status
 
-v0 scaffold. No implementation yet. The first PR after the scaffold
-backfills the OPML and the last six months of brief items and ships
-the first KEEP/DROP/PROBATION report; see `docs/first-pr.md`.
+v0.1 — first end-to-end loop ships. The registry, append-only ledger,
+weekly scoring, and KEEP/PROBATION/DROP memo all work from the CLI.
+8 seed sources are committed. 31 tests pass.
+
+OPML import and backfill are deferred to spec 0003. See
+`specs/0002-design/` for the v0.1 scope cuts.
+
+## How to run
+
+```bash
+uv sync
+
+# 1. Validate the source registry
+python -m source_decay_ledger validate
+
+# 2. Append one brief-item-to-source row
+python -m source_decay_ledger append \
+  --week 2026-W25 \
+  --source ai-daily-brief \
+  --evidence-url https://example.com/brief-item \
+  --published-on 2026-06-19
+
+# 3. Verify the append-only invariant
+python -m source_decay_ledger append-only-check
+
+# 4. Score this week's sources
+python -m source_decay_ledger score --week 2026-W25
+
+# 5. Write the weekly verdict memo
+python -m source_decay_ledger memo --week 2026-W25
+cat decisions/source-registry/2026-W25.md
+
+# Or: dry-run the whole loop without touching disk
+python -m source_decay_ledger --week 2026-W26 --dry-run
+```
+
+## Layout
+
+```
+src/source_decay_ledger/
+  registry.py    typed Source model + load/validate
+  ledger.py      append-only writer + sha256 manifest
+  score.py       per-source 90d / 30d counts
+  memo.py        ranked yield + KEEP/PROBATION/DROP + diff vs prior week
+  cli.py         argparse subcommands; composes the loop
+data/
+  sources.yaml   the registry (8 seed sources)
+  ledger/        weekly JSONL files + .manifest.jsonl
+  scores/        weekly per-source score files
+decisions/
+  DEC-SDL-001-yield-thresholds.md
+  source-registry/YYYY-Wnn.md   the weekly memo
+scripts/
+  voice_lint.py  vendored minimum banlist
+specs/
+  0001-foundation/   the original 12 R-SDL-* requirements
+  0002-design/       v0.1 narrowed scope (this is what shipped)
+tests/               31 tests across 5 files
+```
+
+## Tests + lint
+
+```bash
+uv run pytest -q
+# expect: 31 passed
+
+uv run ruff check src tests
+# expect: All checks passed
+
+python scripts/voice_lint.py decisions/ README.md
+# expect: voice_lint: clean
+```
 
 ## How to run
 

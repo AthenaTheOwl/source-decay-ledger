@@ -1,0 +1,67 @@
+# Seed registry for source-decay-ledger v0.1.
+# Sources lifted from the ai-field-brief reading list; verdicts are starting
+# placeholders that the weekly memo will revise as scores land.
+
+- slug: ai-daily-brief
+  name: The AI Daily Brief
+  category: fast-signal
+  fetch_kind: rss
+  fetch_target: https://podcasts.apple.com/us/podcast/the-ai-daily-brief/id1680633614
+  added_on: 2026-05-01
+  verdict: keep
+
+- slug: latent-space
+  name: Latent Space
+  category: builder-practice
+  fetch_kind: rss
+  fetch_target: https://www.latent.space/feed
+  added_on: 2026-05-01
+  verdict: keep
+
+- slug: openai-blog
+  name: OpenAI Blog
+  category: primary-source
+  fetch_kind: atom
+  fetch_target: https://openai.com/blog/rss.xml
+  added_on: 2026-05-01
+  verdict: keep
+
+- slug: anthropic-news
+  name: Anthropic News
+  category: primary-source
+  fetch_kind: atom
+  fetch_target: https://www.anthropic.com/rss.xml
+  added_on: 2026-05-01
+  verdict: keep
+
+- slug: hf-papers-daily
+  name: Hugging Face Papers (Daily)
+  category: research-firehose
+  fetch_kind: html
+  fetch_target: https://huggingface.co/papers
+  added_on: 2026-05-08
+  verdict: probation
+
+- slug: semianalysis-rumors
+  name: SemiAnalysis (rumors-only filter)
+  category: market-noise
+  fetch_kind: manual
+  fetch_target: notes-only
+  added_on: 2026-04-01
+  verdict: probation
+
+- slug: dwarkesh-podcast
+  name: Dwarkesh Patel Podcast
+  category: builder-interview
+  fetch_kind: rss
+  fetch_target: https://www.dwarkeshpatel.com/feed
+  added_on: 2026-05-15
+  verdict: keep
+
+- slug: practical-ai
+  name: Practical AI
+  category: builder-practice
+  fetch_kind: rss
+  fetch_target: https://changelog.com/practicalai/feed
+  added_on: 2026-05-15
+  verdict: probation
