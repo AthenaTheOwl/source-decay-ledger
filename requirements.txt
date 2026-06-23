@@ -1,6 +1,9 @@
-# Streamlit Community Cloud reads this file. The app (streamlit_app.py) reads the
-# committed data/scores/*.jsonl + data/sources.yaml directly, so it only needs
-# streamlit + pyyaml. The CLI/package under src/source_decay_ledger/ has its own
-# deps in pyproject.toml.
+# Streamlit Community Cloud reads this file. The top of streamlit_app.py reads
+# the committed data/scores/*.jsonl + data/sources.yaml directly (streamlit +
+# pyyaml). The interactive "score a source yourself" section imports the REAL
+# engine (source_decay_ledger.score / .memo), so it also needs pydantic and the
+# package itself installed - the trailing `.` installs this repo as a package.
 streamlit>=1.40
 pyyaml>=6.0
+pydantic>=2.5
+.
