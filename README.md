@@ -37,7 +37,7 @@ Bucket: daily. Cadence: weekly. Brand prefix: `SDL`.
 
 v0.1 — first end-to-end loop ships. The registry, append-only ledger,
 weekly scoring, and KEEP/PROBATION/DROP memo all work from the CLI.
-8 seed sources are committed. 31 tests pass.
+8 seed sources are committed. 34 tests pass.
 
 OPML import and backfill are deferred to spec 0003. See
 `specs/0002-design/` for the v0.1 scope cuts.
@@ -92,14 +92,14 @@ scripts/
 specs/
   0001-foundation/   the original 12 R-SDL-* requirements
   0002-design/       v0.1 narrowed scope (this is what shipped)
-tests/               31 tests across 5 files
+tests/               34 tests across 5 files
 ```
 
 ## Tests + lint
 
 ```bash
 uv run pytest -q
-# expect: 31 passed
+# expect: 34 passed
 
 uv run ruff check src tests
 # expect: All checks passed
@@ -108,48 +108,36 @@ python scripts/voice_lint.py decisions/ README.md
 # expect: voice_lint: clean
 ```
 
-## How to run
+## See it without running the loop
 
-Placeholder. Run commands will land in spec `0002-weekly-pass`.
-The shape will be:
-
-```powershell
-uv sync
-uv run sdl import opml ../ai-field-brief/sources.opml
-uv run sdl backfill items ../ai-field-brief/briefs --since 2026-01-01
-uv run sdl score --window 90d
-uv run sdl report --week 2026-W25
+```bash
+# print a ranked, readable verdict view of the latest committed week
+uv run sdl show
+# (or, without an installed entrypoint)
+PYTHONPATH=src python -m source_decay_ledger show
 ```
 
-## Layout
+`show` reads the committed `data/scores/<latest>.jsonl` + `data/sources.yaml`,
+ranks every source by 90-day yield, and prints the keep / probation / drop
+verdicts plus a headline finding. Read-only, offline, exits 0.
 
+## live demo
+
+A one-page browser over the same committed data: pick which verdicts to show,
+read the per-source yield table, and see the kill list.
+
+```bash
+# local
+pip install -r requirements.txt
+streamlit run streamlit_app.py
 ```
-source-decay-ledger/
-  AGENTS.md
-  LICENSE
-  README.md
-  specs/
-    0001-foundation/
-      requirements.md
-      design.md
-      tasks.md
-      acceptance.md
-  docs/
-    first-pr.md
-  src/
-    registry/           # sources.yaml loader, validators
-    backfill/           # OPML import, brief-item harvester
-    scoring/            # 90-day yield computation
-    ledger/             # append-only provenance writer
-    render/             # weekly report template
-  data/
-    sources.yaml        # the registry (checked in)
-    items/              # parquet of harvested brief items (gitignored cache)
-    ledger/             # append-only YYYY-Wnn.jsonl files (checked in)
-  decisions/
-    source-registry/    # weekly KEEP/DROP/PROBATION memos
-    DEC-SDL-*           # architectural choices
-```
+
+`streamlit_app.py` reads `data/scores/*.jsonl` + `data/sources.yaml` relative to
+the repo root — no network, no secrets. Deploy on Streamlit Community Cloud:
+New app -> repo `AthenaTheOwl/source-decay-ledger`, branch `main`, main file
+`streamlit_app.py`.
+
+<!-- live url: https://share.streamlit.io/... (fill in after first deploy) -->
 
 ## Compounds with
 

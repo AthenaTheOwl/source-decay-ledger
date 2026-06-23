@@ -110,3 +110,49 @@ def test_cli_dry_run(repo: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert "valid: 1 sources" in result.stdout
     assert "would write data/scores/2026-W25.jsonl" in result.stdout
+
+
+def test_cli_show_on_built_week(repo: Path) -> None:
+    # build a week end-to-end, then `show` it with no week arg
+    _run(
+        "append",
+        "--week",
+        "2026-W25",
+        "--source",
+        "alpha",
+        "--evidence-url",
+        "https://example.com/x",
+        "--published-on",
+        "2026-06-19",
+        cwd=repo,
+    )
+    _run("score", "--week", "2026-W25", cwd=repo)
+    result = _run("show", cwd=repo)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "weekly source verdicts, 2026-W25" in out
+    assert "Alpha" in out  # source name, not slug
+    assert "verdict" in out
+    assert "top yield:" in out
+    assert "kill list:" in out
+
+
+def test_cli_show_no_data_exits_nonzero(tmp_path: Path) -> None:
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "sources.yaml").write_text(
+        "- slug: alpha\n  name: Alpha\n  category: x\n  fetch_kind: rss\n"
+        "  fetch_target: http://a\n  added_on: 2026-01-01\n  verdict: keep\n",
+        encoding="utf-8",
+    )
+    result = _run("show", cwd=tmp_path)
+    assert result.returncode == 1
+    assert "no scored week" in result.stderr
+
+
+def test_cli_show_committed_artifact() -> None:
+    # the real committed data ships a scored 2026-W25 week; `show` must read it
+    repo_root = Path(__file__).resolve().parent.parent
+    result = _run("show", cwd=repo_root)
+    assert result.returncode == 0, result.stderr
+    assert "weekly source verdicts" in result.stdout
+    assert "verdicts:" in result.stdout

@@ -13,13 +13,108 @@ from source_decay_ledger.ledger import (
     append_row,
     parse_week,
 )
-from source_decay_ledger.memo import write_memo
-from source_decay_ledger.registry import RegistryError, validate_registry
-from source_decay_ledger.score import score_week, write_scores
+from source_decay_ledger.memo import assign_verdicts, write_memo
+from source_decay_ledger.registry import RegistryError, load_registry, validate_registry
+from source_decay_ledger.score import read_scores, score_week, write_scores
 
 
 def _default_root() -> Path:
     return Path.cwd()
+
+
+def _repo_root() -> Path:
+    """Repo root inferred from this file: src/source_decay_ledger/cli.py -> repo."""
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _latest_scored_week(root: Path) -> str | None:
+    """Return the most recent YYYY-Wnn that has a committed score file."""
+    scores_dir = root / "data" / "scores"
+    if not scores_dir.exists():
+        return None
+    weeks = sorted(p.stem for p in scores_dir.glob("*.jsonl") if p.stem)
+    return weeks[-1] if weeks else None
+
+
+_VERDICT_GLYPH = {"keep": "KEEP", "probation": "PROBATION", "drop": "DROP"}
+
+
+def cmd_show(args: argparse.Namespace) -> int:
+    """Print a readable, ranked verdict view from committed data. No args, offline.
+
+    Reads data/scores/<latest>.jsonl + data/sources.yaml and prints the ranked
+    yield table plus a KEEP/PROBATION/DROP summary and a headline finding.
+    """
+    # Prefer an explicit --root, then cwd if it looks like the repo (has data/),
+    # else fall back to the repo this package was installed from so a bare
+    # `... show` still works when invoked from an unrelated directory.
+    root = args.root
+    if root is None:
+        cwd = _default_root()
+        if (cwd / "data").exists():
+            root = cwd
+        else:
+            root = _repo_root()
+
+    week = args.week or _latest_scored_week(root)
+    if week is None:
+        print(
+            "no scored week found under data/scores/*.jsonl — "
+            "run `score --week <YYYY-Wnn>` first",
+            file=sys.stderr,
+        )
+        return 1
+
+    scores = read_scores(root, week)
+    if not scores:
+        print(f"no scores for week {week}", file=sys.stderr)
+        return 1
+    sources = load_registry(root / "data" / "sources.yaml")
+    name_by_slug = {s.slug: s.name for s in sources}
+    verdicts = assign_verdicts(scores, sources)
+    verdict_by_slug = {v.verdict: [] for v in verdicts}
+    for v in verdicts:
+        verdict_by_slug.setdefault(v.verdict, []).append(v)
+
+    print(f"source-decay-ledger - weekly source verdicts, {week}")
+    print(
+        f"{len(scores)} source(s), ranked by 90-day signal yield "
+        "(brief items traced back to each source)\n"
+    )
+
+    header = f"{'source':<22} {'90d':>4} {'30d':>4} {'last seen':<12} verdict"
+    print(header)
+    print("-" * len(header))
+    for sc in scores:
+        verdict = next((v.verdict for v in verdicts if v.source_slug == sc.source_slug), "-")
+        last = sc.last_seen_at.date().isoformat() if sc.last_seen_at else "-"
+        name = name_by_slug.get(sc.source_slug, sc.source_slug)
+        print(
+            f"{name[:22]:<22} {sc.count_90d:>4} {sc.count_30d:>4} "
+            f"{last:<12} {_VERDICT_GLYPH.get(verdict, verdict)}"
+        )
+
+    keep = verdict_by_slug.get("keep", [])
+    probation = verdict_by_slug.get("probation", [])
+    drop = verdict_by_slug.get("drop", [])
+    print(
+        f"\nverdicts: {len(keep)} keep, {len(probation)} probation, {len(drop)} drop"
+    )
+
+    top = scores[0]
+    if top.count_90d > 0:
+        print(
+            f"top yield: {name_by_slug.get(top.source_slug, top.source_slug)} "
+            f"({top.count_90d} item(s) in 90d)."
+        )
+    else:
+        print("top yield: none — every source is at zero items in the 90-day window.")
+    if drop:
+        names = ", ".join(name_by_slug.get(v.source_slug, v.source_slug) for v in drop)
+        print(f"kill list: {names}.")
+    else:
+        print("kill list: empty.")
+    return 0
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -169,6 +264,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("memo", help="write the weekly KEEP/PROBATION/DROP memo")
     sp.add_argument("--week", type=str, required=True)
     sp.set_defaults(func=cmd_memo)
+
+    sp = sub.add_parser(
+        "show",
+        help="print a readable ranked verdict view from committed data (no args)",
+    )
+    sp.add_argument(
+        "--week",
+        type=str,
+        default=None,
+        help="ISO week to show (default: latest committed score file)",
+    )
+    sp.set_defaults(func=cmd_show)
 
     return p
 
