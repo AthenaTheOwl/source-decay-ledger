@@ -158,5 +158,3 @@ tests/               34 tests across 5 files
 ## License
 
 MIT. See [LICENSE](LICENSE).
-</content>
-</invoke>
