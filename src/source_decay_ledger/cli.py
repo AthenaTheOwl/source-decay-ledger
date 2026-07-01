@@ -173,7 +173,11 @@ def cmd_score(args: argparse.Namespace) -> int:
     except LedgerError as err:
         print(f"INVALID week: {err}", file=sys.stderr)
         return 2
-    scores = score_week(root, args.week)
+    try:
+        scores = score_week(root, args.week)
+    except RegistryError as err:
+        print(f"INVALID registry: {err}", file=sys.stderr)
+        return 2
     out = write_scores(root, args.week, scores)
     print(f"scored {len(scores)} sources -> {out.as_posix()}")
     return 0
@@ -186,7 +190,11 @@ def cmd_memo(args: argparse.Namespace) -> int:
     except LedgerError as err:
         print(f"INVALID week: {err}", file=sys.stderr)
         return 2
-    out = write_memo(root, args.week)
+    try:
+        out = write_memo(root, args.week)
+    except RegistryError as err:
+        print(f"INVALID registry: {err}", file=sys.stderr)
+        return 2
     print(f"wrote {out.as_posix()}")
     return 0
 

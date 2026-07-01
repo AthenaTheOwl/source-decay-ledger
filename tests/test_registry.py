@@ -122,3 +122,20 @@ def test_non_list_root_rejected(tmp_path: Path) -> None:
     f = _write(tmp_path / "obj.yaml", "key: value\n")
     with pytest.raises(RegistryError, match="must be a YAML list"):
         load_registry(f)
+
+
+def test_malformed_yaml_raises_registry_error(tmp_path: Path) -> None:
+    # A scanner error from broken YAML must surface as RegistryError, not a raw
+    # yaml.YAMLError traceback.
+    f = _write(tmp_path / "bad.yaml", "- slug: x\n  name: [unterminated\n")
+    with pytest.raises(RegistryError, match="not valid YAML"):
+        load_registry(f)
+
+
+def test_directory_in_place_of_file_raises_registry_error(tmp_path: Path) -> None:
+    # sources.yaml being a directory makes read_text raise OSError; that must be
+    # converted to RegistryError so callers get a clean INVALID message.
+    d = tmp_path / "sources.yaml"
+    d.mkdir()
+    with pytest.raises(RegistryError, match="cannot read registry file"):
+        load_registry(d)
