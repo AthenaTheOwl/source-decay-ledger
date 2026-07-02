@@ -149,6 +149,22 @@ def test_cli_show_no_data_exits_nonzero(tmp_path: Path) -> None:
     assert "no scored week" in result.stderr
 
 
+def test_cli_score_missing_registry_exits_two(tmp_path: Path) -> None:
+    # score against a root with no data/sources.yaml must report a clean INVALID
+    # registry line and exit 2, matching validate — not a raw traceback / exit 1.
+    (tmp_path / "data").mkdir()
+    result = _run("score", "--week", "2026-W25", cwd=tmp_path)
+    assert result.returncode == 2, result.stderr
+    assert "INVALID registry" in result.stderr
+
+
+def test_cli_memo_missing_registry_exits_two(tmp_path: Path) -> None:
+    (tmp_path / "data").mkdir()
+    result = _run("memo", "--week", "2026-W25", cwd=tmp_path)
+    assert result.returncode == 2, result.stderr
+    assert "INVALID registry" in result.stderr
+
+
 def test_cli_show_committed_artifact() -> None:
     # the real committed data ships a scored 2026-W25 week; `show` must read it
     repo_root = Path(__file__).resolve().parent.parent

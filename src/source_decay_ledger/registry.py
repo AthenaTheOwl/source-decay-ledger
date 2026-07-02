@@ -41,7 +41,18 @@ def load_registry(path: Path | str) -> list[Source]:
     p = Path(path)
     if not p.exists():
         raise RegistryError(f"registry file not found: {p}")
-    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
+    # A directory or unreadable file surfaces as OSError from read_text, and a
+    # syntactically broken YAML body as YAMLError from safe_load; convert both to
+    # RegistryError so every command that loads the registry reports one clean
+    # INVALID line instead of a raw traceback.
+    try:
+        text = p.read_text(encoding="utf-8")
+    except OSError as err:
+        raise RegistryError(f"cannot read registry file {p}: {err}") from err
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as err:
+        raise RegistryError(f"registry at {p} is not valid YAML: {err}") from err
     if raw is None:
         return []
     if not isinstance(raw, list):

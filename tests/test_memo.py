@@ -86,6 +86,71 @@ def test_assign_verdicts_drop_old_zero_yield(repo: Path) -> None:
     assert by_slug["cold-new"].verdict == "probation"
 
 
+def test_assign_verdicts_keep_boundary_at_count_three(repo: Path) -> None:
+    # Pins KEEP_COUNT_90D == 3 and the `>=` operator on memo.py:38: a source at
+    # exactly 3 items in 90d must land KEEP, one at 2 items must land PROBATION.
+    now = datetime(2026, 6, 22, tzinfo=UTC)
+    sources = load_registry(repo / "data" / "sources.yaml")
+    for i in range(3):
+        append_row(
+            root=repo,
+            week="2026-W25",
+            source_slug="hot",
+            evidence_url=f"https://example.com/hot/{i}",
+            published_on=date(2026, 6, 1),
+            now=now - timedelta(days=3),
+        )
+    for i in range(2):
+        append_row(
+            root=repo,
+            week="2026-W25",
+            source_slug="cold-new",
+            evidence_url=f"https://example.com/cold/{i}",
+            published_on=date(2026, 6, 1),
+            now=now - timedelta(days=3),
+        )
+    scores = score_week(repo, "2026-W25", now=now)
+    verdicts = assign_verdicts(scores, sources, now=now)
+    by_slug = {v.source_slug: v for v in verdicts}
+    assert by_slug["hot"].verdict == "keep"
+    assert by_slug["hot"].reason == "3 items in 90d"
+    assert by_slug["cold-new"].verdict == "probation"
+
+
+def test_assign_verdicts_drop_window_boundary_at_sixty_days(repo: Path) -> None:
+    # Pins DROP_DAYS_SINCE_ADDED == 60 and the strict `>` on memo.py:42. Both
+    # sources have zero yield; the one added exactly 60 days ago stays PROBATION
+    # (60 is not > 60), the one added 61 days ago drops.
+    now = datetime(2026, 6, 22, tzinfo=UTC)
+    (repo / "data" / "sources.yaml").write_text(
+        """
+- slug: edge-sixty
+  name: Added Exactly Sixty Days Ago
+  category: x
+  fetch_kind: rss
+  fetch_target: http://s
+  added_on: 2026-04-23
+  verdict: probation
+- slug: edge-sixtyone
+  name: Added Sixty One Days Ago
+  category: x
+  fetch_kind: rss
+  fetch_target: http://o
+  added_on: 2026-04-22
+  verdict: probation
+""",
+        encoding="utf-8",
+    )
+    sources = load_registry(repo / "data" / "sources.yaml")
+    scores = score_week(repo, "2026-W25", now=now)  # no rows → zero yield
+    verdicts = assign_verdicts(scores, sources, now=now)
+    by_slug = {v.source_slug: v for v in verdicts}
+    assert (now.date() - sources[0].added_on).days == 60
+    assert (now.date() - sources[1].added_on).days == 61
+    assert by_slug["edge-sixty"].verdict == "probation"
+    assert by_slug["edge-sixtyone"].verdict == "drop"
+
+
 def test_render_memo_has_keep_probation_drop_sections() -> None:
     verdicts = [
         Verdict("a", "keep", "5 in 90d"),
