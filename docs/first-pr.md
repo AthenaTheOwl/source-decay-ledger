@@ -1,3 +1,11 @@
+> **Historical note - superseded**
+>
+> This was the pre-v0.1 plan, preserved as a historical record. The shipped
+> architecture is `src/source_decay_ledger/` (see README Layout), and the `sdl`
+> name is only the console-script alias. There is no OPML importer,
+> `schemas/source.schema.json`, or `scripts/validate_registry.py`; `data/sources.yaml`
+> has 8 entries. OPML import remains future spec-0003 work.
+
 # First PR — source-decay-ledger
 
 The literal first PR after the scaffold. Narrow scope: stand up the
