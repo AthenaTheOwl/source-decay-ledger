@@ -14,9 +14,9 @@ source of truth for which sources are in scope.
 
 ## Voice constraints
 
-- No marketing words. The banned set will live in
-  `scripts/voice_lint.py::BANNED_FAIL` once the lint script lands in
-  spec 0002. Examples that always fail: leverage, demonstrate, seamless,
+- No marketing words. The banned set lives in
+  `scripts/voice_lint.py::BANNED_FAIL`. Examples that always fail: leverage,
+  demonstrate, seamless,
   cutting-edge, best-in-class, synergy.
 - No antithetical reversals as a structural device.
 - Plain assertions. The verdicts are the artifact; explanations stay
@@ -36,7 +36,9 @@ Will land in spec `0002-weekly-pass`. The intended chain:
 
 ## Out of scope
 
-- A web frontend. The memos are markdown; the ledger is JSONL.
+- A full web app or service. A read-only Streamlit dashboard
+  (`streamlit_app.py`) ships for convenience, but the core product is markdown
+  memos and JSONL ledger files.
 - LLM-judge scoring. Yield is a computable function of brief
   citations, not a vibe.
 - Multi-user. This is a personal forcing function.
