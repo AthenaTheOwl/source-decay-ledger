@@ -130,7 +130,8 @@ records its cutoff as `as_of`, and `memo`, `show`, and the Streamlit demo measur
 source age against it; score files written before that field fall back to the
 current time. The current registry is still used, so historical source membership
 requires a separate registry snapshot; a source whose `added_on` falls after the
-cutoff gets no verdict. Existing ledger rows remain append-only.
+cutoff gets no verdict. Existing ledger rows remain append-only. See
+[DEC-SDL-002](decisions/DEC-SDL-002-as-of-observations.md).
 
 ```bash
 uv run pytest -q
@@ -158,6 +159,7 @@ data/
   scores/        weekly per-source score files
 decisions/
   DEC-SDL-001-yield-thresholds.md
+  DEC-SDL-002-as-of-observations.md
   source-registry/YYYY-Wnn.md   the weekly memo
 scripts/
   voice_lint.py  vendored minimum banlist
