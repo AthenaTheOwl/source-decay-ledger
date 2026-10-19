@@ -17,6 +17,3 @@ Publication date and observation date answer different questions. The score is
 yield known by the cutoff, not a reconstruction of which articles were available
 then. A historical registry snapshot is still needed to reconstruct membership
 and prior verdicts. No existing ledger row or manifest is changed.
-
-This implements a local application of the version-applicability distinction in
-[AI Product Team's change workflow](https://github.com/3orionkings/ai-product-team/blob/main/workflows/process-change.md).
