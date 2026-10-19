@@ -119,7 +119,7 @@ python -m source_decay_ledger --week 2026-W26 --dry-run
 ```
 
 v0.1 ships the first end-to-end loop: registry, append-only ledger, weekly scoring,
-and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 40
+and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 43
 tests passing. OPML import and backfill land in spec 0003. See
 `specs/0002-design/` for the v0.1 scope cuts.
 
@@ -131,7 +131,7 @@ separate registry snapshot. Existing ledger rows remain append-only.
 
 ```bash
 uv run pytest -q
-# expect: 40 passed
+# expect: 43 passed
 
 uv run ruff check src tests
 # expect: All checks passed
