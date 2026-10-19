@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -105,3 +105,32 @@ def test_write_and_read_scores_round_trip(repo: Path) -> None:
     read_back = read_scores(repo, "2026-W25")
     assert len(read_back) == len(scores)
     assert {s.source_slug for s in read_back} == {s.source_slug for s in scores}
+
+
+def test_historical_score_excludes_future_observations(repo: Path) -> None:
+    cutoff = datetime(2026, 9, 30, 12, tzinfo=UTC)
+    for i, ts in enumerate((cutoff - timedelta(days=1), cutoff + timedelta(days=1))):
+        append_row(repo, "2026-W40", "alpha", f"https://example.com/{i}",
+                   date(2026, 9, 29), now=ts)
+    alpha = next(s for s in score_week(repo, "2026-W40", now=cutoff) if s.source_slug == "alpha")
+    assert (alpha.count_30d, alpha.count_90d) == (1, 1)
+    assert alpha.last_seen_at == cutoff - timedelta(days=1)
+
+
+def test_historical_score_normalizes_offsets_before_window_comparison(repo: Path) -> None:
+    cutoff = datetime(2026, 9, 30, 12, tzinfo=UTC)
+    # 14:00+02:00 is exactly the cutoff; replacing its tzinfo would move it into the future.
+    ts = cutoff.astimezone(timezone(timedelta(hours=2)))
+    append_row(repo, "2026-W40", "alpha", "https://example.com/offset", date(2026, 9, 30), now=ts)
+    alpha = next(s for s in score_week(repo, "2026-W40", now=cutoff) if s.source_slug == "alpha")
+    assert alpha.count_30d == 1 and alpha.last_seen_at == cutoff
+
+
+def test_score_cli_accepts_explicit_as_of_and_rejects_naive_time(repo: Path) -> None:
+    from source_decay_ledger.cli import main
+
+    assert main(["--root", str(repo), "score", "--week", "2026-W40",
+                 "--as-of", "2026-09-30T12:00:00Z"]) == 0
+    assert len(read_scores(repo, "2026-W40")) == 2
+    assert main(["--root", str(repo), "score", "--week", "2026-W40",
+                 "--as-of", "2026-09-30T12:00:00"]) == 2
