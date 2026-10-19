@@ -103,6 +103,21 @@ def test_cli_memo_and_show_use_score_as_of_cutoff(repo: Path) -> None:
     assert "verdicts: 0 keep, 1 probation, 0 drop" in res.stdout
 
 
+def test_cli_show_ages_legacy_score_file_at_its_week_end(repo: Path) -> None:
+    # A score file written before `as_of` existed: alpha (added 2026-01-01) is
+    # 45 days old at the end of 2026-W07 (Sunday 2026-02-15), so PROBATION.
+    # Ageing it against the current clock instead re-ages a frozen week to DROP.
+    scores_dir = repo / "data" / "scores"
+    scores_dir.mkdir(parents=True)
+    (scores_dir / "2026-W07.jsonl").write_text(
+        '{"source_slug":"alpha","count_90d":0,"count_30d":0,"last_seen_at":null}\n',
+        encoding="utf-8",
+    )
+    res = _run("show", cwd=repo)
+    assert res.returncode == 0, res.stderr
+    assert "verdicts: 0 keep, 1 probation, 0 drop" in res.stdout
+
+
 def test_cli_append_only_check_clean(repo: Path) -> None:
     _run(
         "append",

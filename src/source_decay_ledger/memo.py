@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from source_decay_ledger.registry import Source, load_registry
-from source_decay_ledger.score import ScoreRow, read_scores
+from source_decay_ledger.score import ScoreRow, read_scores, week_end
 
 KEEP_COUNT_90D = 3
 DROP_DAYS_SINCE_ADDED = 60
@@ -26,15 +26,22 @@ def assign_verdicts(
     sources: list[Source],
     *,
     now: datetime | None = None,
+    week: str | None = None,
 ) -> list[Verdict]:
     """Apply DEC-SDL-001 thresholds. Returns one Verdict per source.
 
     Source age is measured at `now` when given, else at the cutoff recorded in
-    the score rows, else at the current UTC time (score files without `as_of`).
+    the score rows. Score files without `as_of` are aged at the end of `week`
+    (capped at the current UTC time), so a frozen week does not re-age as the
+    clock moves; with no `week` either, the current UTC time is used.
     A source whose `added_on` falls after that date gets no verdict.
     """
     recorded = next((sc.as_of for sc in scores if sc.as_of is not None), None)
-    cutoff_now = now or recorded or datetime.now(UTC)
+    cutoff_now = now or recorded
+    if cutoff_now is None:
+        cutoff_now = datetime.now(UTC)
+        if week is not None:
+            cutoff_now = min(week_end(week), cutoff_now)
     src_by_slug = {s.slug: s for s in sources}
     out: list[Verdict] = []
     for sc in scores:
@@ -129,10 +136,13 @@ def write_memo(
 ) -> Path:
     scores = read_scores(root, week)
     sources = load_registry(root / "data" / "sources.yaml")
-    verdicts = assign_verdicts(scores, sources, now=now)
-    prior_scores = read_scores(root, prior_week(week))
+    verdicts = assign_verdicts(scores, sources, now=now, week=week)
+    prior = prior_week(week)
+    prior_scores = read_scores(root, prior)
     prior_verdicts = (
-        assign_verdicts(prior_scores, sources, now=now) if prior_scores else None
+        assign_verdicts(prior_scores, sources, now=now, week=prior)
+        if prior_scores
+        else None
     )
     out_path = root / "decisions" / "source-registry" / f"{week}.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)

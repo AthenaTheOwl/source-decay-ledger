@@ -54,18 +54,20 @@ def load_sources() -> dict[str, dict]:
     return {s["slug"]: s for s in raw}
 
 
-def verdict_date(scores: list[dict]) -> date:
-    """Mirror memo.assign_verdicts: age sources at the recorded `as_of`, else today."""
+def verdict_date(scores: list[dict], week: str) -> date:
+    """Mirror memo.assign_verdicts: age sources at the recorded `as_of`, else at
+    the end of the score file's ISO week (capped at today)."""
     recorded = next((sc["as_of"] for sc in scores if sc.get("as_of")), None)
     if recorded is None:
-        return datetime.now(UTC).date()
+        year, number = (int(part) for part in week.split("-W"))
+        return min(date.fromisocalendar(year, number, 7), datetime.now(UTC).date())
     return datetime.fromisoformat(recorded.replace("Z", "+00:00")).date()
 
 
 def verdict_for(score: dict, source: dict | None, *, today: date) -> tuple[str, str]:
     """Mirror memo.assign_verdicts: KEEP_COUNT_90D, DROP_DAYS_SINCE_ADDED.
 
-    `today` is the date source age is measured at; pass verdict_date(scores).
+    `today` is the date source age is measured at; pass verdict_date(scores, week).
     A source added after `today` gets "-" (no verdict), as in `show`.
     """
     added = source.get("added_on") if source else None
@@ -103,7 +105,7 @@ if not scores:
 
 sources = load_sources()
 today = datetime.now(UTC).date()
-aged_at = verdict_date(scores)
+aged_at = verdict_date(scores, week)
 
 rows = []
 for sc in scores:

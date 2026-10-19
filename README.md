@@ -119,7 +119,7 @@ python -m source_decay_ledger --week 2026-W26 --dry-run
 ```
 
 v0.1 ships the first end-to-end loop: registry, append-only ledger, weekly scoring,
-and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 52
+and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 55
 tests passing. OPML import and backfill land in spec 0003. See
 `specs/0002-design/` for the v0.1 scope cuts.
 
@@ -127,15 +127,15 @@ tests passing. OPML import and backfill land in spec 0003. See
 use `appended_at`, including both window boundaries and excluding observations
 after the cutoff. A late backfill retains its actual append time. Each score row
 records its cutoff as `as_of`, and `memo`, `show`, and the Streamlit demo measure
-source age against it; score files written before that field fall back to the
-current time. The current registry is still used, so historical source membership
-requires a separate registry snapshot; a source whose `added_on` falls after the
-cutoff gets no verdict. Existing ledger rows remain append-only. See
+source age against it; score files written before that field are aged at the end
+of their ISO week. The current registry is still used, so historical source
+membership requires a separate registry snapshot; a source whose `added_on` falls
+after the cutoff gets no verdict. Existing ledger rows remain append-only. See
 [DEC-SDL-002](decisions/DEC-SDL-002-as-of-observations.md).
 
 ```bash
 uv run pytest -q
-# expect: 52 passed
+# expect: 55 passed
 
 uv run ruff check src tests
 # expect: All checks passed
@@ -166,7 +166,7 @@ scripts/
 specs/
   0001-foundation/   the original 12 R-SDL-* requirements
   0002-design/       v0.1 narrowed scope (this is what shipped)
-tests/               52 tests across 5 files
+tests/               55 tests across 5 files
 ```
 
 ## License

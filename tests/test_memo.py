@@ -223,6 +223,30 @@ def test_assign_verdicts_without_recorded_cutoff_uses_current_time(repo: Path) -
     assert verdict.reason.endswith(f"added {days}d ago")
 
 
+def test_assign_verdicts_ages_legacy_scores_at_week_end(repo: Path) -> None:
+    # 2026-W27 ends Sunday 2026-07-05: cold-new (added 2026-06-15) is 20 days old.
+    sources = load_registry(repo / "data" / "sources.yaml")
+    legacy = [ScoreRow(source_slug="cold-new", count_90d=0, count_30d=0, last_seen_at=None)]
+    (verdict,) = assign_verdicts(legacy, sources, week="2026-W27")
+    assert verdict.verdict == "probation"
+    assert verdict.reason == "0 items in 90d, added 20d ago"
+
+
+def test_write_memo_ages_legacy_prior_week_at_its_week_end(repo: Path) -> None:
+    # W26 written before `as_of` existed (ends 2026-06-28: cold-new 13d old,
+    # PROBATION); W27 scored as of 2026-08-20 (66d old, DROP).
+    (repo / "data" / "scores").mkdir(parents=True, exist_ok=True)
+    (repo / "data" / "scores" / "2026-W26.jsonl").write_text(
+        '{"source_slug":"cold-new","count_90d":0,"count_30d":0,"last_seen_at":null}\n',
+        encoding="utf-8",
+    )
+    w27 = score_week(repo, "2026-W27", now=datetime(2026, 8, 20, tzinfo=UTC))
+    write_scores(repo, "2026-W27", w27)
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    changes = text.split("## What changed since last week", 1)[1]
+    assert "- cold-new: probation → drop" in changes.strip().splitlines()
+
+
 def test_assign_verdicts_skips_sources_added_after_cutoff(repo: Path) -> None:
     # cold-new is added 2026-06-15. At a 2026-06-10 cutoff it was not in the
     # registry yet, so it gets no verdict rather than a negative age.

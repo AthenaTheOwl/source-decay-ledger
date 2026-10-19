@@ -14,7 +14,9 @@ ledger timestamps retain the existing UTC interpretation. `score --as-of` expose
 the cutoff as an offset-qualified timestamp; ordinary scoring still uses now.
 Each score row records the cutoff it was computed at as `as_of`, and verdicts
 measure `days_since_added` against that recorded cutoff. Score files written
-before the field load without it and fall back to the current time.
+before the field load without it and are aged at the end of their ISO week
+(capped at the current time), so a committed week does not re-age as the clock
+moves.
 
 Publication date and observation date answer different questions. The score is
 yield known by the cutoff, not a reconstruction of which articles were available

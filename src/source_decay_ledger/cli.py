@@ -71,7 +71,7 @@ def cmd_show(args: argparse.Namespace) -> int:
         return 1
     sources = load_registry(root / "data" / "sources.yaml")
     name_by_slug = {s.slug: s.name for s in sources}
-    verdicts = assign_verdicts(scores, sources)
+    verdicts = assign_verdicts(scores, sources, week=week)
     verdict_by_slug = {v.verdict: [] for v in verdicts}
     for v in verdicts:
         verdict_by_slug.setdefault(v.verdict, []).append(v)
