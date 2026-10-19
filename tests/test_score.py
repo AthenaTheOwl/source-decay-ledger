@@ -126,6 +126,16 @@ def test_historical_score_normalizes_offsets_before_window_comparison(repo: Path
     assert alpha.count_30d == 1 and alpha.last_seen_at == cutoff
 
 
+def test_score_window_lower_boundaries_are_inclusive(repo: Path) -> None:
+    cutoff = datetime(2026, 9, 30, 12, tzinfo=UTC)
+    # One row exactly 30 days before the cutoff, one exactly 90 days before.
+    for i, days in enumerate((30, 90)):
+        append_row(repo, "2026-W40", "alpha", f"https://example.com/edge/{i}",
+                   date(2026, 6, 1), now=cutoff - timedelta(days=days))
+    alpha = next(s for s in score_week(repo, "2026-W40", now=cutoff) if s.source_slug == "alpha")
+    assert (alpha.count_30d, alpha.count_90d) == (1, 2)
+
+
 def test_score_cli_accepts_explicit_as_of_and_rejects_naive_time(repo: Path) -> None:
     from source_decay_ledger.cli import main
 

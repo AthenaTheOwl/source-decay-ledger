@@ -87,8 +87,8 @@ def test_assign_verdicts_drop_old_zero_yield(repo: Path) -> None:
 
 
 def test_assign_verdicts_keep_boundary_at_count_three(repo: Path) -> None:
-    # Pins KEEP_COUNT_90D == 3 and the `>=` operator on memo.py:38: a source at
-    # exactly 3 items in 90d must land KEEP, one at 2 items must land PROBATION.
+    # Pins KEEP_COUNT_90D == 3 and the `>=` in assign_verdicts' KEEP check: a source
+    # at exactly 3 items in 90d must land KEEP, one at 2 items must land PROBATION.
     now = datetime(2026, 6, 22, tzinfo=UTC)
     sources = load_registry(repo / "data" / "sources.yaml")
     for i in range(3):
@@ -118,9 +118,9 @@ def test_assign_verdicts_keep_boundary_at_count_three(repo: Path) -> None:
 
 
 def test_assign_verdicts_drop_window_boundary_at_sixty_days(repo: Path) -> None:
-    # Pins DROP_DAYS_SINCE_ADDED == 60 and the strict `>` on memo.py:42. Both
-    # sources have zero yield; the one added exactly 60 days ago stays PROBATION
-    # (60 is not > 60), the one added 61 days ago drops.
+    # Pins DROP_DAYS_SINCE_ADDED == 60 and the strict `>` in assign_verdicts' DROP
+    # check. Both sources have zero yield; the one added exactly 60 days ago stays
+    # PROBATION (60 is not > 60), the one added 61 days ago drops.
     now = datetime(2026, 6, 22, tzinfo=UTC)
     (repo / "data" / "sources.yaml").write_text(
         """
@@ -191,6 +191,19 @@ def test_write_memo_ages_sources_at_recorded_score_cutoff(repo: Path) -> None:
     text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
     assert "- cold-new (0 items in 90d, added 16d ago)" in text
     assert "- cold-old (no items in 90d, added 181d ago)" in text
+
+
+def test_write_memo_ages_prior_week_at_its_own_recorded_cutoff(repo: Path) -> None:
+    # W26 as of 2026-07-01: cold-new is 16 days old, PROBATION. W27 as of
+    # 2026-08-20: 66 days old, DROP. Ageing W26 at the clock instead of its own
+    # cutoff would put it in DROP too and hide the transition.
+    w26 = score_week(repo, "2026-W26", now=datetime(2026, 7, 1, tzinfo=UTC))
+    w27 = score_week(repo, "2026-W27", now=datetime(2026, 8, 20, tzinfo=UTC))
+    write_scores(repo, "2026-W26", w26)
+    write_scores(repo, "2026-W27", w27)
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    changes = text.split("## What changed since last week", 1)[1]
+    assert changes.strip().splitlines() == ["- cold-new: probation → drop"]
 
 
 def test_assign_verdicts_explicit_now_overrides_recorded_cutoff(repo: Path) -> None:
