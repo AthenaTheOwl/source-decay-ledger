@@ -126,10 +126,10 @@ tests passing. OPML import and backfill land in spec 0003. See
 `--week` labels the output; `score --as-of` sets the observation cutoff. Counts
 use `appended_at`, including both window boundaries and excluding observations
 after the cutoff. A late backfill retains its actual append time. Each score row
-records its cutoff as `as_of`, and `memo` and `show` measure source age against it;
-score files written before that field fall back to the current time. The current
-registry is still used, so historical source membership requires a separate
-registry snapshot. Existing ledger rows remain append-only.
+records its cutoff as `as_of`, and `memo`, `show`, and the Streamlit demo measure
+source age against it; score files written before that field fall back to the
+current time. The current registry is still used, so historical source membership
+requires a separate registry snapshot. Existing ledger rows remain append-only.
 
 ```bash
 uv run pytest -q

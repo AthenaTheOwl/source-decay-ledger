@@ -54,8 +54,19 @@ def load_sources() -> dict[str, dict]:
     return {s["slug"]: s for s in raw}
 
 
+def verdict_date(scores: list[dict]) -> date:
+    """Mirror memo.assign_verdicts: age sources at the recorded `as_of`, else today."""
+    recorded = next((sc["as_of"] for sc in scores if sc.get("as_of")), None)
+    if recorded is None:
+        return datetime.now(UTC).date()
+    return datetime.fromisoformat(recorded.replace("Z", "+00:00")).date()
+
+
 def verdict_for(score: dict, source: dict | None, *, today: date) -> tuple[str, str]:
-    """Mirror memo.assign_verdicts: KEEP_COUNT_90D, DROP_DAYS_SINCE_ADDED."""
+    """Mirror memo.assign_verdicts: KEEP_COUNT_90D, DROP_DAYS_SINCE_ADDED.
+
+    `today` is the date source age is measured at; pass verdict_date(scores).
+    """
     count_90d = score.get("count_90d", 0)
     if count_90d >= KEEP_COUNT_90D:
         return "keep", f"{count_90d} items in 90d"
@@ -89,11 +100,12 @@ if not scores:
 
 sources = load_sources()
 today = datetime.now(UTC).date()
+aged_at = verdict_date(scores)
 
 rows = []
 for sc in scores:
     src = sources.get(sc["source_slug"])
-    verdict, reason = verdict_for(sc, src, today=today)
+    verdict, reason = verdict_for(sc, src, today=aged_at)
     rows.append(
         {
             "source": src.get("name", sc["source_slug"]) if src else sc["source_slug"],
