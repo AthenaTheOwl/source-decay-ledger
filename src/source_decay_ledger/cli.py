@@ -181,7 +181,8 @@ def cmd_score(args: argparse.Namespace) -> int:
     except RegistryError as err:
         print(f"INVALID registry: {err}", file=sys.stderr)
         return 2
-    except ValueError as err:
+    except (ValueError, OverflowError) as err:
+        # OverflowError: a cutoff near datetime.min/max cannot take the 90-day window.
         print(f"INVALID score input: {err}", file=sys.stderr)
         return 2
     out = write_scores(root, args.week, scores)

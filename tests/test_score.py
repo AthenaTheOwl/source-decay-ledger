@@ -136,6 +136,19 @@ def test_score_cli_accepts_explicit_as_of_and_rejects_naive_time(repo: Path) -> 
                  "--as-of", "2026-09-30T12:00:00"]) == 2
 
 
+def test_score_cli_rejects_out_of_range_as_of(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from source_decay_ledger.cli import main
+
+    # Both parse, but the window arithmetic or UTC conversion overflows.
+    for as_of in ("0001-01-01T00:00:00Z", "9999-12-31T23:59:59-01:00"):
+        assert main(["--root", str(repo), "score", "--week", "2026-W40",
+                     "--as-of", as_of]) == 2
+        assert "INVALID score input" in capsys.readouterr().err
+    assert read_scores(repo, "2026-W40") == []
+
+
 def test_score_rows_record_cutoff_and_legacy_files_still_load(repo: Path) -> None:
     cutoff = datetime(2026, 9, 30, 14, tzinfo=timezone(timedelta(hours=2)))
     write_scores(repo, "2026-W40", score_week(repo, "2026-W40", now=cutoff))
