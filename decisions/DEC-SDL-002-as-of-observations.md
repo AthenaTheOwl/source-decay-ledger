@@ -18,5 +18,6 @@ before the field load without it and fall back to the current time.
 
 Publication date and observation date answer different questions. The score is
 yield known by the cutoff, not a reconstruction of which articles were available
-then. A historical registry snapshot is still needed to reconstruct membership.
+then. A historical registry snapshot is still needed to reconstruct membership;
+a source whose `added_on` falls after the cutoff gets no verdict.
 No existing ledger row or manifest is changed.

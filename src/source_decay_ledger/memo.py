@@ -31,6 +31,7 @@ def assign_verdicts(
 
     Source age is measured at `now` when given, else at the cutoff recorded in
     the score rows, else at the current UTC time (score files without `as_of`).
+    A source whose `added_on` falls after that date gets no verdict.
     """
     recorded = next((sc.as_of for sc in scores if sc.as_of is not None), None)
     cutoff_now = now or recorded or datetime.now(UTC)
@@ -40,6 +41,8 @@ def assign_verdicts(
         source = src_by_slug.get(sc.source_slug)
         if source is None:
             continue  # registry was edited mid-week; defer
+        if source.added_on > cutoff_now.date():
+            continue  # not in the registry yet at the cutoff; defer
         if sc.count_90d >= KEEP_COUNT_90D:
             out.append(Verdict(sc.source_slug, "keep", f"{sc.count_90d} items in 90d"))
             continue

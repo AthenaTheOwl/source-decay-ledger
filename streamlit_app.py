@@ -66,13 +66,16 @@ def verdict_for(score: dict, source: dict | None, *, today: date) -> tuple[str, 
     """Mirror memo.assign_verdicts: KEEP_COUNT_90D, DROP_DAYS_SINCE_ADDED.
 
     `today` is the date source age is measured at; pass verdict_date(scores).
+    A source added after `today` gets "-" (no verdict), as in `show`.
     """
-    count_90d = score.get("count_90d", 0)
-    if count_90d >= KEEP_COUNT_90D:
-        return "keep", f"{count_90d} items in 90d"
     added = source.get("added_on") if source else None
     if isinstance(added, str):
         added = date.fromisoformat(added)
+    if isinstance(added, date) and added > today:
+        return "-", "added after the score cutoff"
+    count_90d = score.get("count_90d", 0)
+    if count_90d >= KEEP_COUNT_90D:
+        return "keep", f"{count_90d} items in 90d"
     days = (today - added).days if isinstance(added, date) else None
     if count_90d == 0 and days is not None and days > DROP_DAYS_SINCE_ADDED:
         return "drop", f"no items in 90d, added {days}d ago"

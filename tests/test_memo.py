@@ -208,3 +208,17 @@ def test_assign_verdicts_without_recorded_cutoff_uses_current_time(repo: Path) -
     (verdict,) = assign_verdicts(legacy, sources)
     days = (datetime.now(UTC).date() - date(2026, 6, 15)).days
     assert verdict.reason.endswith(f"added {days}d ago")
+
+
+def test_assign_verdicts_skips_sources_added_after_cutoff(repo: Path) -> None:
+    # cold-new is added 2026-06-15. At a 2026-06-10 cutoff it was not in the
+    # registry yet, so it gets no verdict rather than a negative age.
+    sources = load_registry(repo / "data" / "sources.yaml")
+    early = score_week(repo, "2026-W24", now=datetime(2026, 6, 10, tzinfo=UTC))
+    by_slug = {v.source_slug: v for v in assign_verdicts(early, sources)}
+    assert "cold-new" not in by_slug
+    assert by_slug["cold-old"].verdict == "drop"
+    # On its added_on date it is 0 days old and on probation.
+    same_day = score_week(repo, "2026-W24", now=datetime(2026, 6, 15, tzinfo=UTC))
+    by_slug = {v.source_slug: v for v in assign_verdicts(same_day, sources)}
+    assert by_slug["cold-new"].reason == "0 items in 90d, added 0d ago"
