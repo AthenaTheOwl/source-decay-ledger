@@ -161,7 +161,7 @@ scripts/
 specs/
   0001-foundation/   the original 12 R-SDL-* requirements
   0002-design/       v0.1 narrowed scope (this is what shipped)
-tests/               40 tests across 5 files
+tests/               43 tests across 5 files
 ```
 
 ## License
