@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from source_decay_ledger.ledger import (
@@ -174,9 +174,15 @@ def cmd_score(args: argparse.Namespace) -> int:
         print(f"INVALID week: {err}", file=sys.stderr)
         return 2
     try:
-        scores = score_week(root, args.week)
+        as_of = datetime.fromisoformat(args.as_of.replace("Z", "+00:00")) if args.as_of else None
+        if as_of is not None and (as_of.tzinfo is None or as_of.utcoffset() is None):
+            raise ValueError("--as-of needs an explicit UTC offset or Z")
+        scores = score_week(root, args.week, now=as_of)
     except RegistryError as err:
         print(f"INVALID registry: {err}", file=sys.stderr)
+        return 2
+    except ValueError as err:
+        print(f"INVALID score input: {err}", file=sys.stderr)
         return 2
     out = write_scores(root, args.week, scores)
     print(f"scored {len(scores)} sources -> {out.as_posix()}")
@@ -267,6 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("score", help="compute weekly per-source counts")
     sp.add_argument("--week", type=str, required=True)
+    sp.add_argument("--as-of", default=None, help="observation cutoff as an ISO timestamp with UTC offset or Z")
     sp.set_defaults(func=cmd_score)
 
     sp = sub.add_parser("memo", help="write the weekly KEEP/PROBATION/DROP memo")

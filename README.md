@@ -107,6 +107,9 @@ python -m source_decay_ledger append-only-check
 # 4. Score this week's sources
 python -m source_decay_ledger score --week 2026-W25
 
+# Reconstruct yield observed by an explicit cutoff during a brief backfill
+python -m source_decay_ledger score --week 2026-W40 --as-of 2026-10-04T23:59:59Z
+
 # 5. Write the weekly verdict memo
 python -m source_decay_ledger memo --week 2026-W25
 cat decisions/source-registry/2026-W25.md
@@ -119,6 +122,12 @@ v0.1 ships the first end-to-end loop: registry, append-only ledger, weekly scori
 and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 40
 tests passing. OPML import and backfill land in spec 0003. See
 `specs/0002-design/` for the v0.1 scope cuts.
+
+`--week` labels the output; `score --as-of` sets the observation cutoff. Counts
+use `appended_at`, including both window boundaries and excluding observations
+after the cutoff. A late backfill retains its actual append time. The current
+registry is still used, so historical source membership and verdicts require a
+separate registry snapshot. Existing ledger rows remain append-only.
 
 ```bash
 uv run pytest -q
