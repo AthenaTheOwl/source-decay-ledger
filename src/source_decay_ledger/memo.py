@@ -27,8 +27,13 @@ def assign_verdicts(
     *,
     now: datetime | None = None,
 ) -> list[Verdict]:
-    """Apply DEC-SDL-001 thresholds. Returns one Verdict per source."""
-    cutoff_now = now or datetime.now(UTC)
+    """Apply DEC-SDL-001 thresholds. Returns one Verdict per source.
+
+    Source age is measured at `now` when given, else at the cutoff recorded in
+    the score rows, else at the current UTC time (score files without `as_of`).
+    """
+    recorded = next((sc.as_of for sc in scores if sc.as_of is not None), None)
+    cutoff_now = now or recorded or datetime.now(UTC)
     src_by_slug = {s.slug: s for s in sources}
     out: list[Verdict] = []
     for sc in scores:

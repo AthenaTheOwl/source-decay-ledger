@@ -12,8 +12,11 @@ The scorer now applies inclusive lower and upper boundaries to `appended_at` and
 normalizes aware timestamps to UTC without changing the instant. Older naive
 ledger timestamps retain the existing UTC interpretation. `score --as-of` exposes
 the cutoff as an offset-qualified timestamp; ordinary scoring still uses now.
+Each score row records the cutoff it was computed at as `as_of`, and verdicts
+measure `days_since_added` against that recorded cutoff. Score files written
+before the field load without it and fall back to the current time.
 
 Publication date and observation date answer different questions. The score is
 yield known by the cutoff, not a reconstruction of which articles were available
-then. A historical registry snapshot is still needed to reconstruct membership
-and prior verdicts. No existing ledger row or manifest is changed.
+then. A historical registry snapshot is still needed to reconstruct membership.
+No existing ledger row or manifest is changed.

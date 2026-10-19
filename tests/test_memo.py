@@ -16,7 +16,7 @@ from source_decay_ledger.memo import (
     write_memo,
 )
 from source_decay_ledger.registry import load_registry
-from source_decay_ledger.score import score_week, write_scores
+from source_decay_ledger.score import ScoreRow, score_week, write_scores
 
 
 @pytest.fixture
@@ -181,3 +181,30 @@ def test_write_memo_produces_file(repo: Path) -> None:
     assert "Source registry verdicts" in text
     assert "## Yield table" in text
     assert "## What changed since last week" in text
+
+
+def test_write_memo_ages_sources_at_recorded_score_cutoff(repo: Path) -> None:
+    # Scores computed as of 2026-07-01: cold-new is 16 days old, so PROBATION.
+    # Ageing it against the clock at memo time would push it past 60 days → DROP.
+    as_of = datetime(2026, 7, 1, tzinfo=UTC)
+    write_scores(repo, "2026-W27", score_week(repo, "2026-W27", now=as_of))
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    assert "- cold-new (0 items in 90d, added 16d ago)" in text
+    assert "- cold-old (no items in 90d, added 181d ago)" in text
+
+
+def test_assign_verdicts_explicit_now_overrides_recorded_cutoff(repo: Path) -> None:
+    sources = load_registry(repo / "data" / "sources.yaml")
+    scores = score_week(repo, "2026-W27", now=datetime(2026, 7, 1, tzinfo=UTC))
+    later = datetime(2026, 9, 1, tzinfo=UTC)
+    by_slug = {v.source_slug: v for v in assign_verdicts(scores, sources, now=later)}
+    assert by_slug["cold-new"].verdict == "drop"
+    assert by_slug["cold-new"].reason == "no items in 90d, added 78d ago"
+
+
+def test_assign_verdicts_without_recorded_cutoff_uses_current_time(repo: Path) -> None:
+    sources = load_registry(repo / "data" / "sources.yaml")
+    legacy = [ScoreRow(source_slug="cold-new", count_90d=0, count_30d=0, last_seen_at=None)]
+    (verdict,) = assign_verdicts(legacy, sources)
+    days = (datetime.now(UTC).date() - date(2026, 6, 15)).days
+    assert verdict.reason.endswith(f"added {days}d ago")

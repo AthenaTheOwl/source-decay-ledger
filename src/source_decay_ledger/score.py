@@ -16,6 +16,9 @@ class ScoreRow(BaseModel):
     count_90d: int
     count_30d: int
     last_seen_at: datetime | None
+    # Observation cutoff the counts were computed at. Score files written before
+    # this field existed load as None, and verdicts fall back to the current time.
+    as_of: datetime | None = None
 
 
 def _utc(value: datetime) -> datetime:
@@ -52,6 +55,7 @@ def score_week(
                     1 for timestamp in observed if timestamp >= cutoff_30
                 ),
                 last_seen_at=last,
+                as_of=cutoff_now,
             )
         )
     out.sort(key=lambda r: (-r.count_90d, r.source_slug))

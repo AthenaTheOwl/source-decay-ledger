@@ -134,3 +134,16 @@ def test_score_cli_accepts_explicit_as_of_and_rejects_naive_time(repo: Path) -> 
     assert len(read_scores(repo, "2026-W40")) == 2
     assert main(["--root", str(repo), "score", "--week", "2026-W40",
                  "--as-of", "2026-09-30T12:00:00"]) == 2
+
+
+def test_score_rows_record_cutoff_and_legacy_files_still_load(repo: Path) -> None:
+    cutoff = datetime(2026, 9, 30, 14, tzinfo=timezone(timedelta(hours=2)))
+    write_scores(repo, "2026-W40", score_week(repo, "2026-W40", now=cutoff))
+    recorded = {s.as_of for s in read_scores(repo, "2026-W40")}
+    assert recorded == {datetime(2026, 9, 30, 12, tzinfo=UTC)}
+    # A score file written before `as_of` existed still loads, with no cutoff.
+    (repo / "data" / "scores" / "2026-W25.jsonl").write_text(
+        '{"source_slug":"alpha","count_90d":1,"count_30d":1,"last_seen_at":null}\n',
+        encoding="utf-8",
+    )
+    assert read_scores(repo, "2026-W25")[0].as_of is None
