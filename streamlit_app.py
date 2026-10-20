@@ -321,37 +321,41 @@ if st.button("run the engine", type="primary"):
         memo.DROP_DAYS_SINCE_ADDED = saved_drop
 
     score_row = scores[0]
-    verdict = verdicts[0]
-
-    m1, m2, m3 = st.columns(3)
-    m1.metric("90d yield", score_row.count_90d)
-    m2.metric("30d yield", score_row.count_30d)
-    m3.metric("verdict", verdict.verdict.upper())
-
-    days_since = (as_of - added_on).days
-    if verdict.verdict == "keep":
-        st.success(
-            f"**KEEP** - {verdict.reason}. "
-            f"clears the bar of {keep_thresh} item(s) in 90d."
-        )
-    elif verdict.verdict == "drop":
-        st.error(
-            f"**DROP** - {verdict.reason}. "
-            f"zero yield and past the {drop_days}d grace window "
-            f"(added {days_since}d before the as-of date)."
-        )
+    if not verdicts:
+        # assign_verdicts gives no verdict to a source added after the cutoff.
+        st.info("source not on the list yet at the as-of date: no verdict.")
     else:
-        st.warning(
-            f"**PROBATION** - {verdict.reason}. "
-            f"below the keep bar of {keep_thresh} but inside the "
-            f"{drop_days}d grace window, so not dropped yet."
-        )
+        verdict = verdicts[0]
 
-    st.caption(
-        f"engine: source_decay_ledger.score.score_week -> "
-        f"source_decay_ledger.memo.assign_verdicts "
-        f"(week {run_week}, {len(parsed)} ledger item(s) parsed)."
-    )
+        m1, m2, m3 = st.columns(3)
+        m1.metric("90d yield", score_row.count_90d)
+        m2.metric("30d yield", score_row.count_30d)
+        m3.metric("verdict", verdict.verdict.upper())
+
+        days_since = (as_of - added_on).days
+        if verdict.verdict == "keep":
+            st.success(
+                f"**KEEP** - {verdict.reason}. "
+                f"clears the bar of {keep_thresh} item(s) in 90d."
+            )
+        elif verdict.verdict == "drop":
+            st.error(
+                f"**DROP** - {verdict.reason}. "
+                f"zero yield and past the {drop_days}d grace window "
+                f"(added {days_since}d before the as-of date)."
+            )
+        else:
+            st.warning(
+                f"**PROBATION** - {verdict.reason}. "
+                f"below the keep bar of {keep_thresh} but inside the "
+                f"{drop_days}d grace window, so not dropped yet."
+            )
+
+        st.caption(
+            f"engine: source_decay_ledger.score.score_week -> "
+            f"source_decay_ledger.memo.assign_verdicts "
+            f"(week {run_week}, {len(parsed)} ledger item(s) parsed)."
+        )
 
 st.divider()
 
