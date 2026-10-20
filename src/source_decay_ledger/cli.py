@@ -32,8 +32,14 @@ def _latest_scored_week(root: Path) -> str | None:
     scores_dir = root / "data" / "scores"
     if not scores_dir.exists():
         return None
-    weeks = sorted(p.stem for p in scores_dir.glob("*.jsonl") if p.stem)
-    return weeks[-1] if weeks else None
+    weeks = []
+    for p in scores_dir.glob("*.jsonl"):
+        try:
+            parse_week(p.stem)
+        except LedgerError:
+            continue  # stray file such as 2026-W25-old.jsonl
+        weeks.append(p.stem)
+    return max(weeks) if weeks else None
 
 
 _VERDICT_GLYPH = {"keep": "KEEP", "probation": "PROBATION", "drop": "DROP"}
@@ -56,6 +62,12 @@ def cmd_show(args: argparse.Namespace) -> int:
         else:
             root = _repo_root()
 
+    if args.week:
+        try:
+            parse_week(args.week)
+        except LedgerError as err:
+            print(f"INVALID week: {err}", file=sys.stderr)
+            return 2
     week = args.week or _latest_scored_week(root)
     if week is None:
         print(
@@ -71,7 +83,7 @@ def cmd_show(args: argparse.Namespace) -> int:
         return 1
     sources = load_registry(root / "data" / "sources.yaml")
     name_by_slug = {s.slug: s.name for s in sources}
-    verdicts = assign_verdicts(scores, sources)
+    verdicts = assign_verdicts(scores, sources, week=week)
     verdict_by_slug = {v.verdict: [] for v in verdicts}
     for v in verdicts:
         verdict_by_slug.setdefault(v.verdict, []).append(v)
@@ -181,7 +193,8 @@ def cmd_score(args: argparse.Namespace) -> int:
     except RegistryError as err:
         print(f"INVALID registry: {err}", file=sys.stderr)
         return 2
-    except ValueError as err:
+    except (ValueError, OverflowError) as err:
+        # OverflowError: a cutoff near datetime.min/max cannot take the 90-day window.
         print(f"INVALID score input: {err}", file=sys.stderr)
         return 2
     out = write_scores(root, args.week, scores)

@@ -119,19 +119,24 @@ python -m source_decay_ledger --week 2026-W26 --dry-run
 ```
 
 v0.1 ships the first end-to-end loop: registry, append-only ledger, weekly scoring,
-and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 40
+and the KEEP/PROBATION/DROP memo, all from the CLI. 8 seed sources committed, 55
 tests passing. OPML import and backfill land in spec 0003. See
 `specs/0002-design/` for the v0.1 scope cuts.
 
 `--week` labels the output; `score --as-of` sets the observation cutoff. Counts
 use `appended_at`, including both window boundaries and excluding observations
-after the cutoff. A late backfill retains its actual append time. The current
-registry is still used, so historical source membership and verdicts require a
-separate registry snapshot. Existing ledger rows remain append-only.
+after the cutoff. A late backfill retains its actual append time. Each score row
+records its cutoff as `as_of`, and `memo`, `show`, and the Streamlit demo measure
+source age against it; score files written before that field are aged at the end
+of their ISO week (or now, if that week has not ended), so their day counts can
+run up to six days later than a memo written mid-week. The current registry is still used, so historical source
+membership requires a separate registry snapshot; a source whose `added_on` falls
+after the cutoff gets no verdict. Existing ledger rows remain append-only. See
+[DEC-SDL-002](decisions/DEC-SDL-002-as-of-observations.md).
 
 ```bash
 uv run pytest -q
-# expect: 40 passed
+# expect: 60 passed
 
 uv run ruff check src tests
 # expect: All checks passed
@@ -155,13 +160,14 @@ data/
   scores/        weekly per-source score files
 decisions/
   DEC-SDL-001-yield-thresholds.md
+  DEC-SDL-002-as-of-observations.md
   source-registry/YYYY-Wnn.md   the weekly memo
 scripts/
   voice_lint.py  vendored minimum banlist
 specs/
   0001-foundation/   the original 12 R-SDL-* requirements
   0002-design/       v0.1 narrowed scope (this is what shipped)
-tests/               40 tests across 5 files
+tests/               60 tests across 5 files
 ```
 
 ## License

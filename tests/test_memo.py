@@ -16,7 +16,7 @@ from source_decay_ledger.memo import (
     write_memo,
 )
 from source_decay_ledger.registry import load_registry
-from source_decay_ledger.score import score_week, write_scores
+from source_decay_ledger.score import ScoreRow, score_week, write_scores
 
 
 @pytest.fixture
@@ -87,8 +87,8 @@ def test_assign_verdicts_drop_old_zero_yield(repo: Path) -> None:
 
 
 def test_assign_verdicts_keep_boundary_at_count_three(repo: Path) -> None:
-    # Pins KEEP_COUNT_90D == 3 and the `>=` operator on memo.py:38: a source at
-    # exactly 3 items in 90d must land KEEP, one at 2 items must land PROBATION.
+    # Pins KEEP_COUNT_90D == 3 and the `>=` in assign_verdicts' KEEP check: a source
+    # at exactly 3 items in 90d must land KEEP, one at 2 items must land PROBATION.
     now = datetime(2026, 6, 22, tzinfo=UTC)
     sources = load_registry(repo / "data" / "sources.yaml")
     for i in range(3):
@@ -118,9 +118,9 @@ def test_assign_verdicts_keep_boundary_at_count_three(repo: Path) -> None:
 
 
 def test_assign_verdicts_drop_window_boundary_at_sixty_days(repo: Path) -> None:
-    # Pins DROP_DAYS_SINCE_ADDED == 60 and the strict `>` on memo.py:42. Both
-    # sources have zero yield; the one added exactly 60 days ago stays PROBATION
-    # (60 is not > 60), the one added 61 days ago drops.
+    # Pins DROP_DAYS_SINCE_ADDED == 60 and the strict `>` in assign_verdicts' DROP
+    # check. Both sources have zero yield; the one added exactly 60 days ago stays
+    # PROBATION (60 is not > 60), the one added 61 days ago drops.
     now = datetime(2026, 6, 22, tzinfo=UTC)
     (repo / "data" / "sources.yaml").write_text(
         """
@@ -181,3 +181,111 @@ def test_write_memo_produces_file(repo: Path) -> None:
     assert "Source registry verdicts" in text
     assert "## Yield table" in text
     assert "## What changed since last week" in text
+
+
+def test_write_memo_ages_sources_at_recorded_score_cutoff(repo: Path) -> None:
+    # Scores computed as of 2026-07-01: cold-new is 16 days old, so PROBATION.
+    # Ageing it against the clock at memo time would push it past 60 days → DROP.
+    as_of = datetime(2026, 7, 1, tzinfo=UTC)
+    write_scores(repo, "2026-W27", score_week(repo, "2026-W27", now=as_of))
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    assert "- cold-new (0 items in 90d, added 16d ago)" in text
+    assert "- cold-old (no items in 90d, added 181d ago)" in text
+
+
+def test_write_memo_ages_prior_week_at_its_own_recorded_cutoff(repo: Path) -> None:
+    # W26 as of 2026-07-01: cold-new is 16 days old, PROBATION. W27 as of
+    # 2026-08-20: 66 days old, DROP. Ageing W26 at the clock instead of its own
+    # cutoff would put it in DROP too and hide the transition.
+    w26 = score_week(repo, "2026-W26", now=datetime(2026, 7, 1, tzinfo=UTC))
+    w27 = score_week(repo, "2026-W27", now=datetime(2026, 8, 20, tzinfo=UTC))
+    write_scores(repo, "2026-W26", w26)
+    write_scores(repo, "2026-W27", w27)
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    changes = text.split("## What changed since last week", 1)[1]
+    assert changes.strip().splitlines() == ["- cold-new: probation → drop"]
+
+
+def test_assign_verdicts_explicit_now_overrides_recorded_cutoff(repo: Path) -> None:
+    sources = load_registry(repo / "data" / "sources.yaml")
+    scores = score_week(repo, "2026-W27", now=datetime(2026, 7, 1, tzinfo=UTC))
+    later = datetime(2026, 9, 1, tzinfo=UTC)
+    by_slug = {v.source_slug: v for v in assign_verdicts(scores, sources, now=later)}
+    assert by_slug["cold-new"].verdict == "drop"
+    assert by_slug["cold-new"].reason == "no items in 90d, added 78d ago"
+
+
+def test_assign_verdicts_without_recorded_cutoff_uses_current_time(repo: Path) -> None:
+    sources = load_registry(repo / "data" / "sources.yaml")
+    legacy = [ScoreRow(source_slug="cold-new", count_90d=0, count_30d=0, last_seen_at=None)]
+    (verdict,) = assign_verdicts(legacy, sources)
+    days = (datetime.now(UTC).date() - date(2026, 6, 15)).days
+    assert verdict.reason.endswith(f"added {days}d ago")
+
+
+def test_assign_verdicts_ages_legacy_scores_at_week_end(repo: Path) -> None:
+    # 2026-W27 ends Sunday 2026-07-05: cold-new (added 2026-06-15) is 20 days old.
+    sources = load_registry(repo / "data" / "sources.yaml")
+    legacy = [ScoreRow(source_slug="cold-new", count_90d=0, count_30d=0, last_seen_at=None)]
+    (verdict,) = assign_verdicts(legacy, sources, week="2026-W27")
+    assert verdict.verdict == "probation"
+    assert verdict.reason == "0 items in 90d, added 20d ago"
+
+
+def test_write_memo_ages_legacy_prior_week_at_its_week_end(repo: Path) -> None:
+    # W26 written before `as_of` existed (ends 2026-06-28: cold-new 13d old,
+    # PROBATION); W27 scored as of 2026-08-20 (66d old, DROP).
+    (repo / "data" / "scores").mkdir(parents=True, exist_ok=True)
+    (repo / "data" / "scores" / "2026-W26.jsonl").write_text(
+        '{"source_slug":"cold-new","count_90d":0,"count_30d":0,"last_seen_at":null}\n',
+        encoding="utf-8",
+    )
+    w27 = score_week(repo, "2026-W27", now=datetime(2026, 8, 20, tzinfo=UTC))
+    write_scores(repo, "2026-W27", w27)
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    changes = text.split("## What changed since last week", 1)[1]
+    assert "- cold-new: probation → drop" in changes.strip().splitlines()
+
+
+def test_write_memo_ages_legacy_prior_week_at_its_own_week_end(repo: Path) -> None:
+    # edge (added 2026-04-29) is 60 days old at the end of W26 (2026-06-28),
+    # PROBATION, and 67 days old at the end of W27 (2026-07-05), DROP. Ageing the
+    # legacy W26 file at W27's end instead would hide the transition.
+    with (repo / "data" / "sources.yaml").open("a", encoding="utf-8") as fh:
+        fh.write(
+            "- slug: edge\n  name: Edge\n  category: x\n  fetch_kind: rss\n"
+            "  fetch_target: http://e\n  added_on: 2026-04-29\n  verdict: probation\n"
+        )
+    scores_dir = repo / "data" / "scores"
+    scores_dir.mkdir(parents=True, exist_ok=True)
+    row = '{"source_slug":"edge","count_90d":0,"count_30d":0,"last_seen_at":null}\n'
+    (scores_dir / "2026-W26.jsonl").write_text(row, encoding="utf-8")
+    (scores_dir / "2026-W27.jsonl").write_text(row, encoding="utf-8")
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    changes = text.split("## What changed since last week", 1)[1]
+    assert changes.strip().splitlines() == ["- edge: probation → drop"]
+
+
+def test_assign_verdicts_caps_legacy_week_end_at_current_time(repo: Path) -> None:
+    # A legacy file for a week that has not ended is aged today, not at its Sunday.
+    sources = load_registry(repo / "data" / "sources.yaml")
+    legacy = [ScoreRow(source_slug="cold-new", count_90d=0, count_30d=0, last_seen_at=None)]
+    days = (datetime.now(UTC).date() - date(2026, 6, 15)).days
+    for offset in (0, 7):  # the in-progress week, and next week (Sunday always ahead)
+        year, number, _ = (datetime.now(UTC).date() + timedelta(days=offset)).isocalendar()
+        (verdict,) = assign_verdicts(legacy, sources, week=f"{year:04d}-W{number:02d}")
+        assert verdict.reason.endswith(f"added {days}d ago")
+
+
+def test_assign_verdicts_skips_sources_added_after_cutoff(repo: Path) -> None:
+    # cold-new is added 2026-06-15. At a 2026-06-10 cutoff it was not in the
+    # registry yet, so it gets no verdict rather than a negative age.
+    sources = load_registry(repo / "data" / "sources.yaml")
+    early = score_week(repo, "2026-W24", now=datetime(2026, 6, 10, tzinfo=UTC))
+    by_slug = {v.source_slug: v for v in assign_verdicts(early, sources)}
+    assert "cold-new" not in by_slug
+    assert by_slug["cold-old"].verdict == "drop"
+    # On its added_on date it is 0 days old and on probation.
+    same_day = score_week(repo, "2026-W24", now=datetime(2026, 6, 15, tzinfo=UTC))
+    by_slug = {v.source_slug: v for v in assign_verdicts(same_day, sources)}
+    assert by_slug["cold-new"].reason == "0 items in 90d, added 0d ago"

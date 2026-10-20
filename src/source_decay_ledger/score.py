@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from pydantic import BaseModel
 
-from source_decay_ledger.ledger import LedgerRow, iter_all_rows
+from source_decay_ledger.ledger import LedgerRow, iter_all_rows, parse_week
 from source_decay_ledger.registry import load_registry
 
 
@@ -16,6 +16,17 @@ class ScoreRow(BaseModel):
     count_90d: int
     count_30d: int
     last_seen_at: datetime | None
+    # Observation cutoff the counts were computed at. Score files written before
+    # this field existed load as None, and verdicts fall back to the end of the
+    # file's ISO week (see `week_end`).
+    as_of: datetime | None = None
+
+
+def week_end(week: str) -> datetime:
+    """Last second (UTC) of ISO week YYYY-Wnn: the cutoff a legacy score file implies."""
+    year, number = parse_week(week)
+    sunday = date.fromisocalendar(year, number, 7)
+    return datetime(sunday.year, sunday.month, sunday.day, 23, 59, 59, tzinfo=UTC)
 
 
 def _utc(value: datetime) -> datetime:
@@ -52,6 +63,7 @@ def score_week(
                     1 for timestamp in observed if timestamp >= cutoff_30
                 ),
                 last_seen_at=last,
+                as_of=cutoff_now,
             )
         )
     out.sort(key=lambda r: (-r.count_90d, r.source_slug))

@@ -87,6 +87,38 @@ def test_cli_append_and_score_and_memo(repo: Path) -> None:
     assert "Source registry verdicts" in memo_path.read_text(encoding="utf-8")
 
 
+def test_cli_memo_and_show_use_score_as_of_cutoff(repo: Path) -> None:
+    # alpha (added 2026-01-01, no items) is 60 days old at the Monday cutoff:
+    # PROBATION. Ageing it at the end of W10 (Sunday 2026-03-08, 66 days) or
+    # against the current clock would give DROP.
+    res = _run("score", "--week", "2026-W10", "--as-of", "2026-03-02T12:00:00Z", cwd=repo)
+    assert res.returncode == 0, res.stderr
+    res = _run("memo", "--week", "2026-W10", cwd=repo)
+    assert res.returncode == 0, res.stderr
+    memo_text = (repo / "decisions" / "source-registry" / "2026-W10.md").read_text(
+        encoding="utf-8"
+    )
+    assert "- alpha (0 items in 90d, added 60d ago)" in memo_text
+    res = _run("show", "--week", "2026-W10", cwd=repo)
+    assert res.returncode == 0, res.stderr
+    assert "verdicts: 0 keep, 1 probation, 0 drop" in res.stdout
+
+
+def test_cli_show_ages_legacy_score_file_at_its_week_end(repo: Path) -> None:
+    # A score file written before `as_of` existed: alpha (added 2026-01-01) is
+    # 45 days old at the end of 2026-W07 (Sunday 2026-02-15), so PROBATION.
+    # Ageing it against the current clock instead re-ages a frozen week to DROP.
+    scores_dir = repo / "data" / "scores"
+    scores_dir.mkdir(parents=True)
+    (scores_dir / "2026-W07.jsonl").write_text(
+        '{"source_slug":"alpha","count_90d":0,"count_30d":0,"last_seen_at":null}\n',
+        encoding="utf-8",
+    )
+    res = _run("show", cwd=repo)
+    assert res.returncode == 0, res.stderr
+    assert "verdicts: 0 keep, 1 probation, 0 drop" in res.stdout
+
+
 def test_cli_append_only_check_clean(repo: Path) -> None:
     _run(
         "append",
@@ -147,6 +179,26 @@ def test_cli_show_no_data_exits_nonzero(tmp_path: Path) -> None:
     result = _run("show", cwd=tmp_path)
     assert result.returncode == 1
     assert "no scored week" in result.stderr
+
+
+def test_cli_memo_and_show_reject_week_off_the_iso_calendar(repo: Path) -> None:
+    # 2027 has 52 ISO weeks: memo exits 2 with INVALID week, not a traceback.
+    for cmd in ("memo", "show"):
+        result = _run(cmd, "--week", "2027-W53", cwd=repo)
+        assert result.returncode == 2, result.stderr
+        assert "INVALID week" in result.stderr
+        assert "Traceback" not in result.stderr
+
+
+def test_cli_show_skips_stray_score_file(repo: Path) -> None:
+    scores_dir = repo / "data" / "scores"
+    scores_dir.mkdir(parents=True)
+    row = '{"source_slug":"alpha","count_90d":0,"count_30d":0,"last_seen_at":null}\n'
+    (scores_dir / "2026-W07.jsonl").write_text(row, encoding="utf-8")
+    (scores_dir / "2026-W07-old.jsonl").write_text(row, encoding="utf-8")
+    result = _run("show", cwd=repo)
+    assert result.returncode == 0, result.stderr
+    assert "weekly source verdicts, 2026-W07" in result.stdout
 
 
 def test_cli_score_missing_registry_exits_two(tmp_path: Path) -> None:

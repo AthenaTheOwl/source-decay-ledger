@@ -126,6 +126,16 @@ def test_historical_score_normalizes_offsets_before_window_comparison(repo: Path
     assert alpha.count_30d == 1 and alpha.last_seen_at == cutoff
 
 
+def test_score_window_lower_boundaries_are_inclusive(repo: Path) -> None:
+    cutoff = datetime(2026, 9, 30, 12, tzinfo=UTC)
+    # One row exactly 30 days before the cutoff, one exactly 90 days before.
+    for i, days in enumerate((30, 90)):
+        append_row(repo, "2026-W40", "alpha", f"https://example.com/edge/{i}",
+                   date(2026, 6, 1), now=cutoff - timedelta(days=days))
+    alpha = next(s for s in score_week(repo, "2026-W40", now=cutoff) if s.source_slug == "alpha")
+    assert (alpha.count_30d, alpha.count_90d) == (1, 2)
+
+
 def test_score_cli_accepts_explicit_as_of_and_rejects_naive_time(repo: Path) -> None:
     from source_decay_ledger.cli import main
 
@@ -134,3 +144,29 @@ def test_score_cli_accepts_explicit_as_of_and_rejects_naive_time(repo: Path) -> 
     assert len(read_scores(repo, "2026-W40")) == 2
     assert main(["--root", str(repo), "score", "--week", "2026-W40",
                  "--as-of", "2026-09-30T12:00:00"]) == 2
+
+
+def test_score_cli_rejects_out_of_range_as_of(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from source_decay_ledger.cli import main
+
+    # Both parse, but the window arithmetic or UTC conversion overflows.
+    for as_of in ("0001-01-01T00:00:00Z", "9999-12-31T23:59:59-01:00"):
+        assert main(["--root", str(repo), "score", "--week", "2026-W40",
+                     "--as-of", as_of]) == 2
+        assert "INVALID score input" in capsys.readouterr().err
+    assert read_scores(repo, "2026-W40") == []
+
+
+def test_score_rows_record_cutoff_and_legacy_files_still_load(repo: Path) -> None:
+    cutoff = datetime(2026, 9, 30, 14, tzinfo=timezone(timedelta(hours=2)))
+    write_scores(repo, "2026-W40", score_week(repo, "2026-W40", now=cutoff))
+    recorded = {s.as_of for s in read_scores(repo, "2026-W40")}
+    assert recorded == {datetime(2026, 9, 30, 12, tzinfo=UTC)}
+    # A score file written before `as_of` existed still loads, with no cutoff.
+    (repo / "data" / "scores" / "2026-W25.jsonl").write_text(
+        '{"source_slug":"alpha","count_90d":1,"count_30d":1,"last_seen_at":null}\n',
+        encoding="utf-8",
+    )
+    assert read_scores(repo, "2026-W25")[0].as_of is None
