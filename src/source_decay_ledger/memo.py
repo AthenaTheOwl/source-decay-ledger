@@ -40,7 +40,7 @@ def assign_verdicts(
     cutoff_now = now or recorded
     if cutoff_now is None:
         cutoff_now = datetime.now(UTC)
-        if week is not None:
+        if week is not None and scores:
             cutoff_now = min(week_end(week), cutoff_now)
     src_by_slug = {s.slug: s for s in sources}
     out: list[Verdict] = []

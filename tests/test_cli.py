@@ -180,6 +180,26 @@ def test_cli_show_no_data_exits_nonzero(tmp_path: Path) -> None:
     assert "no scored week" in result.stderr
 
 
+def test_cli_memo_and_show_reject_week_off_the_iso_calendar(repo: Path) -> None:
+    # 2027 has 52 ISO weeks: memo exits 2 with INVALID week, not a traceback.
+    for cmd in ("memo", "show"):
+        result = _run(cmd, "--week", "2027-W53", cwd=repo)
+        assert result.returncode == 2, result.stderr
+        assert "INVALID week" in result.stderr
+        assert "Traceback" not in result.stderr
+
+
+def test_cli_show_skips_stray_score_file(repo: Path) -> None:
+    scores_dir = repo / "data" / "scores"
+    scores_dir.mkdir(parents=True)
+    row = '{"source_slug":"alpha","count_90d":0,"count_30d":0,"last_seen_at":null}\n'
+    (scores_dir / "2026-W07.jsonl").write_text(row, encoding="utf-8")
+    (scores_dir / "2026-W07-old.jsonl").write_text(row, encoding="utf-8")
+    result = _run("show", cwd=repo)
+    assert result.returncode == 0, result.stderr
+    assert "weekly source verdicts, 2026-W07" in result.stdout
+
+
 def test_cli_score_missing_registry_exits_two(tmp_path: Path) -> None:
     # score against a root with no data/sources.yaml must report a clean INVALID
     # registry line and exit 2, matching validate — not a raw traceback / exit 1.

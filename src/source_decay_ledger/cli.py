@@ -32,8 +32,14 @@ def _latest_scored_week(root: Path) -> str | None:
     scores_dir = root / "data" / "scores"
     if not scores_dir.exists():
         return None
-    weeks = sorted(p.stem for p in scores_dir.glob("*.jsonl") if p.stem)
-    return weeks[-1] if weeks else None
+    weeks = []
+    for p in scores_dir.glob("*.jsonl"):
+        try:
+            parse_week(p.stem)
+        except LedgerError:
+            continue  # stray file such as 2026-W25-old.jsonl
+        weeks.append(p.stem)
+    return max(weeks) if weeks else None
 
 
 _VERDICT_GLYPH = {"keep": "KEEP", "probation": "PROBATION", "drop": "DROP"}
@@ -56,6 +62,12 @@ def cmd_show(args: argparse.Namespace) -> int:
         else:
             root = _repo_root()
 
+    if args.week:
+        try:
+            parse_week(args.week)
+        except LedgerError as err:
+            print(f"INVALID week: {err}", file=sys.stderr)
+            return 2
     week = args.week or _latest_scored_week(root)
     if week is None:
         print(

@@ -30,7 +30,12 @@ def parse_week(week: str) -> tuple[int, int]:
     m = WEEK_PATTERN.match(week)
     if not m:
         raise LedgerError(f"week {week!r} must match YYYY-Wnn, e.g. 2026-W25")
-    return int(m.group(1)), int(m.group(2))
+    year, number = int(m.group(1)), int(m.group(2))
+    try:
+        date.fromisocalendar(year, number, 1)
+    except ValueError as err:
+        raise LedgerError(f"week {week!r} is not on the ISO calendar: {err}") from err
+    return year, number
 
 
 def ledger_path(root: Path, week: str) -> Path:

@@ -28,6 +28,14 @@ def test_parse_week_rejects_garbage() -> None:
         parse_week("2026-25")
 
 
+def test_parse_week_rejects_weeks_off_the_iso_calendar() -> None:
+    # The regex accepts these, but no such ISO week exists.
+    for week in ("2026-W00", "2027-W53", "2026-W60"):
+        with pytest.raises(LedgerError):
+            parse_week(week)
+    assert parse_week("2026-W53") == (2026, 53)  # 2026 has 53 ISO weeks
+
+
 def test_derive_item_slug_is_deterministic() -> None:
     a = derive_item_slug("https://example.com/x")
     b = derive_item_slug("https://example.com/x")
