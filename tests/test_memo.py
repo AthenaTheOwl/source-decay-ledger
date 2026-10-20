@@ -247,6 +247,36 @@ def test_write_memo_ages_legacy_prior_week_at_its_week_end(repo: Path) -> None:
     assert "- cold-new: probation → drop" in changes.strip().splitlines()
 
 
+def test_write_memo_ages_legacy_prior_week_at_its_own_week_end(repo: Path) -> None:
+    # edge (added 2026-04-29) is 60 days old at the end of W26 (2026-06-28),
+    # PROBATION, and 67 days old at the end of W27 (2026-07-05), DROP. Ageing the
+    # legacy W26 file at W27's end instead would hide the transition.
+    with (repo / "data" / "sources.yaml").open("a", encoding="utf-8") as fh:
+        fh.write(
+            "- slug: edge\n  name: Edge\n  category: x\n  fetch_kind: rss\n"
+            "  fetch_target: http://e\n  added_on: 2026-04-29\n  verdict: probation\n"
+        )
+    scores_dir = repo / "data" / "scores"
+    scores_dir.mkdir(parents=True, exist_ok=True)
+    row = '{"source_slug":"edge","count_90d":0,"count_30d":0,"last_seen_at":null}\n'
+    (scores_dir / "2026-W26.jsonl").write_text(row, encoding="utf-8")
+    (scores_dir / "2026-W27.jsonl").write_text(row, encoding="utf-8")
+    text = write_memo(repo, "2026-W27").read_text(encoding="utf-8")
+    changes = text.split("## What changed since last week", 1)[1]
+    assert changes.strip().splitlines() == ["- edge: probation → drop"]
+
+
+def test_assign_verdicts_caps_legacy_week_end_at_current_time(repo: Path) -> None:
+    # A legacy file for a week that has not ended is aged today, not at its Sunday.
+    sources = load_registry(repo / "data" / "sources.yaml")
+    legacy = [ScoreRow(source_slug="cold-new", count_90d=0, count_30d=0, last_seen_at=None)]
+    days = (datetime.now(UTC).date() - date(2026, 6, 15)).days
+    for offset in (0, 7):  # the in-progress week, and next week (Sunday always ahead)
+        year, number, _ = (datetime.now(UTC).date() + timedelta(days=offset)).isocalendar()
+        (verdict,) = assign_verdicts(legacy, sources, week=f"{year:04d}-W{number:02d}")
+        assert verdict.reason.endswith(f"added {days}d ago")
+
+
 def test_assign_verdicts_skips_sources_added_after_cutoff(repo: Path) -> None:
     # cold-new is added 2026-06-15. At a 2026-06-10 cutoff it was not in the
     # registry yet, so it gets no verdict rather than a negative age.

@@ -88,17 +88,18 @@ def test_cli_append_and_score_and_memo(repo: Path) -> None:
 
 
 def test_cli_memo_and_show_use_score_as_of_cutoff(repo: Path) -> None:
-    # alpha (added 2026-01-01, no items) is 45 days old at the cutoff: PROBATION,
-    # not the DROP that ageing it against the current clock would give.
-    res = _run("score", "--week", "2026-W07", "--as-of", "2026-02-15T12:00:00Z", cwd=repo)
+    # alpha (added 2026-01-01, no items) is 60 days old at the Monday cutoff:
+    # PROBATION. Ageing it at the end of W10 (Sunday 2026-03-08, 66 days) or
+    # against the current clock would give DROP.
+    res = _run("score", "--week", "2026-W10", "--as-of", "2026-03-02T12:00:00Z", cwd=repo)
     assert res.returncode == 0, res.stderr
-    res = _run("memo", "--week", "2026-W07", cwd=repo)
+    res = _run("memo", "--week", "2026-W10", cwd=repo)
     assert res.returncode == 0, res.stderr
-    memo_text = (repo / "decisions" / "source-registry" / "2026-W07.md").read_text(
+    memo_text = (repo / "decisions" / "source-registry" / "2026-W10.md").read_text(
         encoding="utf-8"
     )
-    assert "- alpha (0 items in 90d, added 45d ago)" in memo_text
-    res = _run("show", "--week", "2026-W07", cwd=repo)
+    assert "- alpha (0 items in 90d, added 60d ago)" in memo_text
+    res = _run("show", "--week", "2026-W10", cwd=repo)
     assert res.returncode == 0, res.stderr
     assert "verdicts: 0 keep, 1 probation, 0 drop" in res.stdout
 

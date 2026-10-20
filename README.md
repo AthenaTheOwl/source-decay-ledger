@@ -135,7 +135,7 @@ after the cutoff gets no verdict. Existing ledger rows remain append-only. See
 
 ```bash
 uv run pytest -q
-# expect: 58 passed
+# expect: 60 passed
 
 uv run ruff check src tests
 # expect: All checks passed
@@ -166,7 +166,7 @@ scripts/
 specs/
   0001-foundation/   the original 12 R-SDL-* requirements
   0002-design/       v0.1 narrowed scope (this is what shipped)
-tests/               58 tests across 5 files
+tests/               60 tests across 5 files
 ```
 
 ## License
