@@ -128,7 +128,8 @@ use `appended_at`, including both window boundaries and excluding observations
 after the cutoff. A late backfill retains its actual append time. Each score row
 records its cutoff as `as_of`, and `memo`, `show`, and the Streamlit demo measure
 source age against it; score files written before that field are aged at the end
-of their ISO week. The current registry is still used, so historical source
+of their ISO week (or now, if that week has not ended), so their day counts can
+run up to six days later than a memo written mid-week. The current registry is still used, so historical source
 membership requires a separate registry snapshot; a source whose `added_on` falls
 after the cutoff gets no verdict. Existing ledger rows remain append-only. See
 [DEC-SDL-002](decisions/DEC-SDL-002-as-of-observations.md).

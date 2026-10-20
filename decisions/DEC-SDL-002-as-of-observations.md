@@ -16,7 +16,10 @@ Each score row records the cutoff it was computed at as `as_of`, and verdicts
 measure `days_since_added` against that recorded cutoff. Score files written
 before the field load without it and are aged at the end of their ISO week
 (capped at the current time), so a committed week does not re-age as the clock
-moves.
+moves. That Sunday is a proxy: it can be up to six days later than when the file
+was computed. Regenerating the committed 2026-W25 memo, written on Saturday
+2026-06-20, gives the same verdicts with each age one day higher; the committed
+memo is left as written.
 
 Publication date and observation date answer different questions. The score is
 yield known by the cutoff, not a reconstruction of which articles were available
